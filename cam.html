@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-950 text-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SnapStudio - Camera & Photo Review</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    body {
+      font-family: 'Inter', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    
+    /* Live Filter CSS Classes */
+    .filter-none { filter: none; }
+    .filter-grayscale { filter: grayscale(100%); }
+    .filter-sepia { filter: sepia(90%); }
+    .filter-vintage { filter: sepia(40%) contrast(120%) brightness(90%) hue-rotate(-15deg); }
+    .filter-warm { filter: sepia(30%) saturate(140%) brightness(105%); }
+    .filter-cool { filter: hue-rotate(180deg) saturate(120%) brightness(105%); }
+    .filter-invert { filter: invert(100%); }
+
+    /* Flash animation */
+    @keyframes cameraFlash {
+      0% { opacity: 0; }
+      50% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+    .flash-active {
+      animation: cameraFlash 0.25s ease-out;
+    }
+
+    /* Custom Scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.6);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(100, 116, 139, 0.5);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(148, 163, 184, 0.8);
+    }
+  </style>
+</head>
+<body class="h-full flex flex-col justify-between overflow-x-hidden selection:bg-indigo-500 selection:text-white">
+
+  <!-- Top Navigation Header -->
+  <header class="sticky top-0 z-40 bg-slate-900/80 backdrop-blur-md border-b border-slate-800 px-4 py-3">
+    <div class="max-w-4xl mx-auto flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+          <i class="fa-solid font-bold fa-camera text-white text-lg"></i>
+        </div>
+        <div>
+          <h1 class="font-bold text-lg leading-tight bg-gradient-to-r from-white via-slate-200 to-indigo-300 bg-clip-text text-transparent">SnapStudio</h1>
+          <p class="text-xs text-slate-400">Capture & Review</p>
+        </div>
+      </div>
+
+      <!-- Navigation Switch Buttons -->
+      <nav class="flex items-center space-x-2 bg-slate-800/80 p-1 rounded-xl border border-slate-700/50">
+        <button id="navHomeBtn" onclick="showPage('home')" class="px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition-all duration-200 flex items-center gap-2 bg-indigo-600 text-white shadow-sm">
+          <i class="fa-solid fa-camera"></i>
+          <span>Camera</span>
+        </button>
+        <button id="navGalleryBtn" onclick="showPage('gallery')" class="px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition-all duration-200 flex items-center gap-2 text-slate-300 hover:text-white hover:bg-slate-700/50 relative">
+          <i class="fa-solid fa-images"></i>
+          <span>Review Photos</span>
+          <span id="photoBadge" class="hidden bg-indigo-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full ml-1">0</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Flash Overlay Screen -->
+  <div id="flashOverlay" class="fixed inset-0 bg-white z-50 pointer-events-none opacity-0"></div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-slate-800/90 border border-slate-700 text-white text-xs sm:text-sm px-4 py-2.5 rounded-full shadow-2xl flex items-center gap-2 opacity-0 pointer-events-none transition-all duration-300 translate-y-4">
+    <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400"></i>
+    <span id="toastMsg">Photo captured successfully!</span>
+  </div>
+
+  <!-- MAIN CONTENT CONTAINER -->
+  <main class="flex-1 max-w-4xl w-full mx-auto p-3 sm:p-6 flex flex-col justify-center">
+
+    <!-- PAGE 1: PHOTO TAKING HOME PAGE -->
+    <section id="homePage" class="flex flex-col items-center justify-center space-y-4 w-full">
+      
+      <!-- Video Viewfinder Container -->
+      <div class="relative w-full aspect-[4/3] sm:aspect-[16/9] max-h-[60vh] bg-slate-900 rounded-2xl overflow-hidden border border-slate-800 shadow-2xl flex items-center justify-center group">
+        
+        <!-- Live Camera Stream -->
+        <video id="videoFeed" autoplay playsinline class="w-full h-full object-cover filter-none transition-all duration-200"></video>
+        
+        <!-- Fallback Message if Camera Disabled -->
+        <div id="cameraFallback" class="hidden absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-slate-900/95 space-y-3 z-10">
+          <div class="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 text-2xl">
+            <i class="fa-solid fa-video-slash"></i>
+          </div>
+          <p class="text-slate-300 font-medium text-sm sm:text-base">Camera Access Required</p>
+          <p class="text-xs text-slate-500 max-w-xs">Please allow camera permissions in your browser or click below to simulate camera mode.</p>
+          <button onclick="startDemoMode()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold shadow-lg transition-all">
+            Use Canvas Demo Mode
+          </button>
+        </div>
+
+        <!-- Hidden Canvas for Snapshot Capture -->
+        <canvas id="snapshotCanvas" class="hidden"></canvas>
+
+        <!-- Viewfinder Overlay Elements -->
+        <div class="absolute inset-0 pointer-events-none p-4 flex flex-col justify-between">
+          <!-- Top Overlay Info -->
+          <div class="flex justify-between items-center text-slate-400 text-xs bg-slate-950/40 backdrop-blur-sm px-3 py-1.5 rounded-full w-max">
+            <span id="cameraStatus" class="flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Live Stream
+            </span>
+          </div>
+
+          <!-- Grid Lines (Toggleable) -->
+          <div id="cameraGrid" class="hidden absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none border border-white/10">
+            <div class="border-r border-b border-white/10"></div>
+            <div class="border-r border-b border-white/10"></div>
+            <div class="border-b border-white/10"></div>
+            <div class="border-r border-b border-white/10"></div>
+            <div class="border-r border-b border-white/10"></div>
+            <div class="border-b border-white/10"></div>
+            <div class="border-r border-white/10"></div>
+            <div class="border-r border-white/10"></div>
+            <div></div>
+          </div>
+
+          <!-- Countdown Timer Display -->
+          <div id="timerCountdown" class="hidden absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-xs">
+            <span id="timerNumber" class="text-7xl sm:text-9xl font-extrabold text-white animate-bounce">3</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Filter Selector Horizontal Bar -->
+      <div class="w-full overflow-x-auto py-1 no-scrollbar">
+        <div class="flex items-center justify-center min-w-max space-x-2 px-2 mx-auto">
+          <span class="text-xs text-slate-400 mr-1"><i class="fa-solid fa-wand-magic-sparkles text-indigo-400"></i> Filter:</span>
+          <button onclick="setFilter('filter-none', 'Normal')" class="filter-btn active-filter px-3 py-1 rounded-full text-xs font-medium bg-indigo-600 text-white border border-indigo-400 transition">Normal</button>
+          <button onclick="setFilter('filter-grayscale', 'B&W')" class="filter-btn px-3 py-1 rounded-full text-xs font-medium bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700 transition">B&W</button>
+          <button onclick="setFilter('filter-sepia', 'Sepia')" class="filter-btn px-3 py-1 rounded-full text-xs font-medium bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700 transition">Sepia</button>
+          <button onclick="setFilter('filter-vintage', 'Vintage')" class="filter-btn px-3 py-1 rounded-full text-xs font-medium bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700 transition">Vintage</button>
+          <button onclick="setFilter('filter-warm', 'Warm')" class="filter-btn px-3 py-1 rounded-full text-xs font-medium bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700 transition">Warm</button>
+          <button onclick="setFilter('filter-cool', 'Cool')" class="filter-btn px-3 py-1 rounded-full text-xs font-medium bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700 transition">Cool</button>
+          <button onclick="setFilter('filter-invert', 'Invert')" class="filter-btn px-3 py-1 rounded-full text-xs font-medium bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700 transition">Invert</button>
+        </div>
+      </div>
+
+      <!-- Primary Camera Actions Bar -->
+      <div class="flex items-center justify-between w-full max-w-md px-4 py-2 bg-slate-900/90 rounded-2xl border border-slate-800 shadow-xl">
+        
+        <!-- Timer Button Toggle -->
+        <button id="timerToggleBtn" onclick="cycleTimer()" title="Set Capture Timer" class="w-11 h-11 rounded-full bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 flex flex-col items-center justify-center transition text-xs font-semibold">
+          <i class="fa-solid fa-stopwatch text-sm"></i>
+          <span id="timerLabel" class="text-[9px]">OFF</span>
+        </button>
+
+        <!-- Main Shutter Button -->
+        <div class="relative flex items-center justify-center">
+          <button id="shutterBtn" onclick="triggerCaptureSequence()" class="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-slate-900 border-4 border-indigo-500 p-1 focus:outline-none hover:scale-105 active:scale-95 transition-transform duration-150 shadow-lg shadow-indigo-500/25 group flex items-center justify-center">
+            <div class="w-full h-full rounded-full bg-indigo-500 group-hover:bg-indigo-400 transition flex items-center justify-center">
+              <i class="fa-solid fa-camera text-white text-xl sm:text-2xl"></i>
+            </div>
+          </button>
+        </div>
+
+        <!-- Grid Lines Toggle -->
+        <button id="gridToggleBtn" onclick="toggleGrid()" title="Toggle Composition Grid" class="w-11 h-11 rounded-full bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 flex flex-col items-center justify-center transition text-xs">
+          <i class="fa-solid fa-border-all text-sm"></i>
+          <span class="text-[9px]">Grid</span>
+        </button>
+      </div>
+
+      <!-- Quick Recent Photo Thumbnail Box -->
+      <div id="quickRecentBox" onclick="showPage('gallery')" class="hidden w-full max-w-md bg-slate-900/60 hover:bg-slate-800/80 p-2.5 rounded-xl border border-slate-800 cursor-pointer transition flex items-center justify-between group">
+        <div class="flex items-center space-x-3">
+          <div class="w-12 h-12 rounded-lg bg-slate-800 overflow-hidden border border-slate-700 flex-shrink-0">
+            <img id="quickRecentImg" src="" alt="Latest Photo" class="w-full h-full object-cover">
+          </div>
+          <div>
+            <p class="text-xs font-medium text-slate-200">Latest Photo Saved</p>
+            <p id="quickRecentTime" class="text-[11px] text-slate-400">Just now</p>
+          </div>
+        </div>
+        <div class="flex items-center text-xs text-indigo-400 group-hover:translate-x-1 transition-transform mr-2">
+          <span>Review Gallery</span>
+          <i class="fa-solid fa-chevron-right ml-1"></i>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- PAGE 2: PHOTO REVIEW GALLERY -->
+    <section id="galleryPage" class="hidden flex-col space-y-5 w-full">
+      
+      <!-- Top Action Bar with "Back to Home / Camera" Button -->
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-slate-900 p-4 rounded-2xl border border-slate-800">
+        <div class="flex items-center space-x-3">
+          <!-- BACK TO HOME BUTTON -->
+          <button onclick="showPage('home')" class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs sm:text-sm flex items-center gap-2 transition shadow-md shadow-indigo-600/20 active:scale-95">
+            <i class="fa-solid fa-arrow-left"></i>
+            <span>Back to Camera</span>
+          </button>
+          <div>
+            <h2 class="text-base font-bold text-slate-100">Photo Review Gallery</h2>
+            <p class="text-xs text-slate-400" id="photoCountSub text">0 photos captured</p>
+          </div>
+        </div>
+
+        <div class="flex items-center space-x-2 w-full sm:w-auto justify-end">
+          <button id="clearAllBtn" onclick="confirmClearAll()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-rose-900/50 hover:text-rose-300 border border-slate-700 text-slate-300 text-xs transition flex items-center gap-1.5">
+            <i class="fa-solid fa-trash-can text-rose-400"></i>
+            <span>Clear Gallery</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Empty State -->
+      <div id="emptyGallery" class="flex flex-col items-center justify-center py-16 px-4 text-center bg-slate-900/40 border border-dashed border-slate-800 rounded-2xl space-y-3">
+        <div class="w-16 h-16 rounded-full bg-slate-800/80 flex items-center justify-center text-slate-500 text-2xl">
+          <i class="fa-regular fa-image"></i>
+        </div>
+        <h3 class="text-base font-semibold text-slate-300">No Photos Taken Yet</h3>
+        <p class="text-xs text-slate-500 max-w-xs">Snap your first photo using the camera feed to start building your gallery collection!</p>
+        <button onclick="showPage('home')" class="mt-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold transition shadow-md">
+          <i class="fa-solid fa-camera mr-1.5"></i> Open Camera
+        </button>
+      </div>
+
+      <!-- Gallery Grid View -->
+      <div id="galleryGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
+        <!-- Photo Cards dynamically injected here -->
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- FULL SCREEN PHOTO PREVIEW / LIGHTBOX MODAL -->
+  <div id="lightboxModal" class="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md hidden flex-col justify-between p-4 sm:p-6 transition-opacity duration-200">
+    <!-- Lightbox Header -->
+    <div class="flex items-center justify-between max-w-4xl w-full mx-auto text-white">
+      <div class="flex items-center space-x-3">
+        <button onclick="closeLightbox()" class="w-9 h-9 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center transition">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+        <div>
+          <p id="lightboxTitle" class="text-xs sm:text-sm font-semibold">Photo Review</p>
+          <p id="lightboxTimestamp" class="text-[10px] sm:text-xs text-slate-400">Captured at --:--</p>
+        </div>
+      </div>
+
+      <!-- Lightbox Controls -->
+      <div class="flex items-center space-x-2">
+        <a id="lightboxDownloadBtn" download="snapstudio-photo.png" href="#" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium flex items-center gap-1.5 transition">
+          <i class="fa-solid fa-download"></i>
+          <span class="hidden sm:inline">Save</span>
+        </a>
+        <button id="lightboxDeleteBtn" onclick="deleteCurrentLightboxPhoto()" class="px-3 py-1.5 rounded-lg bg-rose-900/60 hover:bg-rose-800 text-rose-200 text-xs font-medium flex items-center gap-1.5 transition border border-rose-700/50">
+          <i class="fa-solid fa-trash-can"></i>
+          <span class="hidden sm:inline">Delete</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Lightbox Main Image Display -->
+    <div class="flex-1 flex items-center justify-center my-4 overflow-hidden relative">
+      <img id="lightboxImg" src="" alt="Full preview" class="max-h-full max-w-full object-contain rounded-lg border border-slate-800 shadow-2xl">
+    </div>
+
+    <!-- Lightbox Footer / Navigation back to Camera -->
+    <div class="max-w-4xl w-full mx-auto flex items-center justify-between text-xs text-slate-400 border-t border-slate-800/80 pt-3">
+      <span id="lightboxFilterBadge" class="bg-slate-800 px-2.5 py-1 rounded-md text-[11px] font-mono">Filter: Normal</span>
+      <button onclick="closeLightbox(); showPage('home');" class="text-indigo-400 hover:text-indigo-300 font-medium flex items-center gap-1">
+        <i class="fa-solid fa-camera"></i>
+        <span>Take New Photo</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Confirmation Dialog Modal -->
+  <div id="confirmModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl">
+      <div class="flex items-center space-x-3 text-rose-400">
+        <i class="fa-solid fa-triangle-exclamation text-xl"></i>
+        <h4 class="font-bold text-slate-100 text-sm">Clear All Photos?</h4>
+      </div>
+      <p class="text-xs text-slate-400 leading-relaxed">Are you sure you want to permanently delete all captured photos from your review gallery?</p>
+      <div class="flex items-center justify-end space-x-2 pt-2">
+        <button onclick="closeConfirmModal()" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition">Cancel</button>
+        <button onclick="executeClearAll()" class="px-3.5 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-medium transition">Delete All</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- App Footer -->
+  <footer class="bg-slate-900/50 border-t border-slate-800/60 py-3 text-center text-[11px] text-slate-500">
+    <p>SnapStudio Web Camera App &bull; Powered by HTML5 & WebRTC</p>
+  </footer>
+
+  <script>
+    // Global State
+    let photosList = [];
+    let currentFilter = 'filter-none';
+    let currentFilterName = 'Normal';
+    let timerSeconds = 0; // 0 = OFF, 3, 5, 10
+    let activeStream = null;
+    let isDemoMode = false;
+    let currentLightboxIndex = -1;
+
+    // DOM Elements
+    const videoFeed = document.getElementById('videoFeed');
+    const snapshotCanvas = document.getElementById('snapshotCanvas');
+    const cameraFallback = document.getElementById('cameraFallback');
+    const flashOverlay = document.getElementById('flashOverlay');
+    const galleryGrid = document.getElementById('galleryGrid');
+    const emptyGallery = document.getElementById('emptyGallery');
+    const photoBadge = document.getElementById('photoBadge');
+
+    // Page Load Initialization
+    window.addEventListener('load', () => {
+      loadPhotosFromStorage();
+      initCamera();
+    });
+
+    // Camera WebRTC Stream Initialization
+    async function initCamera() {
+      try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          throw new Error("getUserMedia not supported");
+        }
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" },
+          audio: false
+        });
+        activeStream = stream;
+        videoFeed.srcObject = stream;
+        cameraFallback.classList.add('hidden');
+        isDemoMode = false;
+      } catch (err) {
+        console.warn("Camera permission denied or unavailable. Falling back to Demo Canvas Mode:", err);
+        startDemoMode();
+      }
+    }
+
+    // Demo Canvas fallback if no web camera permission is given
+    function startDemoMode() {
+      isDemoMode = true;
+      cameraFallback.classList.add('hidden');
+      const ctx = snapshotCanvas.getContext('2d');
+      snapshotCanvas.width = 640;
+      snapshotCanvas.height = 480;
+
+      function renderDemoFrame() {
+        if (!isDemoMode) return;
+        const time = Date.now() * 0.002;
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(0, 0, 640, 480);
+
+        // Draw dynamic background pattern
+        ctx.fillStyle = '#1e293b';
+        for (let i = 0; i < 5; i++) {
+          ctx.beginPath();
+          ctx.arc(
+            320 + Math.sin(time + i) * 100,
+            240 + Math.cos(time + i * 0.8) * 60,
+            60 + i * 15,
+            0, Math.PI * 2
+          );
+          ctx.fill();
+        }
+
+        // Draw animated subject shape
+        ctx.fillStyle = '#6366f1';
+        ctx.beginPath();
+        ctx.arc(320, 220 + Math.sin(time * 2) * 15, 70, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 20px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('Demo Camera Mode', 320, 360);
+        ctx.font = '12px sans-serif';
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillText('Click shutter to capture test photo', 320, 385);
+
+        requestAnimationFrame(renderDemoFrame);
+      }
+      renderDemoFrame();
+    }
+
+    // Trigger Photo Capture (Handles Timer countdown)
+    function triggerCaptureSequence() {
+      if (timerSeconds > 0) {
+        runCountdown(timerSeconds, () => {
+          capturePhoto();
+        });
+      } else {
+        capturePhoto();
+      }
+    }
+
+    // Countdown animation overlay
+    function runCountdown(seconds, callback) {
+      const overlay = document.getElementById('timerCountdown');
+      const numberEl = document.getElementById('timerNumber');
+      overlay.classList.remove('hidden');
+      
+      let count = seconds;
+      numberEl.textContent = count;
+
+      const interval = setInterval(() => {
+        count--;
+        if (count > 0) {
+          numberEl.textContent = count;
+        } else {
+          clearInterval(interval);
+          overlay.classList.add('hidden');
+          callback();
+        }
+      }, 1000);
+    }
+
+    // Capture Photo from Stream or Canvas
+    function capturePhoto() {
+      // Flash screen effect
+      flashOverlay.classList.add('flash-active');
+      setTimeout(() => flashOverlay.classList.remove('flash-active'), 300);
+
+      // Play synthesized camera shutter sound
+      playShutterSound();
+
+      // Setup canvas dimensions
+      let width = videoFeed.videoWidth || 640;
+      let height = videoFeed.videoHeight || 480;
+      snapshotCanvas.width = width;
+      snapshotCanvas.height = height;
+
+      const ctx = snapshotCanvas.getContext('2d');
+
+      // Apply currently selected CSS filter to canvas
+      ctx.filter = getCanvasFilterString(currentFilter);
+
+      if (isDemoMode) {
+        // Render demo snapshot
+        ctx.drawImage(snapshotCanvas, 0, 0, width, height);
+      } else {
+        // Draw video frame
+        ctx.drawImage(videoFeed, 0, 0, width, height);
+      }
+
+      // Export as Base64 Data URL
+      const dataUrl = snapshotCanvas.toDataURL('image/png');
+      
+      const newPhoto = {
+        id: Date.now(),
+        dataUrl: dataUrl,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        date: new Date().toLocaleDateString(),
+        filterName: currentFilterName
+      };
+
+      photosList.unshift(newPhoto);
+      savePhotosToStorage();
+      updateGalleryUI();
+      updateQuickRecentBox(newPhoto);
+
+      showToast("Photo captured & saved to review!");
+    }
+
+    // Convert CSS filter class to canvas filter property string
+    function getCanvasFilterString(filterClass) {
+      switch (filterClass) {
+        case 'filter-grayscale': return 'grayscale(100%)';
+        case 'filter-sepia': return 'sepia(90%)';
+        case 'filter-vintage': return 'sepia(40%) contrast(120%) brightness(90%) hue-rotate(-15deg)';
+        case 'filter-warm': return 'sepia(30%) saturate(140%) brightness(105%)';
+        case 'filter-cool': return 'hue-rotate(180deg) saturate(120%) brightness(105%)';
+        case 'filter-invert': return 'invert(100%)';
+        default: return 'none';
+      }
+    }
+
+    // Web Audio Synthesized Camera Shutter Sound (No external audio file needed!)
+    function playShutterSound() {
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        const ctx = new AudioCtx();
+        
+        // Noise buffer for camera click
+        const bufferSize = ctx.sampleRate * 0.05;
+        const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = Math.random() * 2 - 1;
+        }
+
+        const noise = ctx.createBufferSource();
+        noise.buffer = buffer;
+
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0.3, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.05);
+
+        noise.connect(gain);
+        gain.connect(ctx.destination);
+        noise.start();
+      } catch (e) {
+        // Ignore audio play restrictions
+      }
+    }
+
+    // Render Photos in Gallery Grid
+    function updateGalleryUI() {
+      // Update badge count
+      if (photosList.length > 0) {
+        photoBadge.textContent = photosList.length;
+        photoBadge.classList.remove('hidden');
+        emptyGallery.classList.add('hidden');
+      } else {
+        photoBadge.classList.add('hidden');
+        emptyGallery.classList.remove('hidden');
+      }
+
+      galleryGrid.innerHTML = '';
+
+      photosList.forEach((photo, index) => {
+        const card = document.createElement('div');
+        card.className = "group relative bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-lg transition transform hover:-translate-y-1 hover:border-indigo-500/50";
+        card.innerHTML = `
+          <div class="aspect-square w-full overflow-hidden bg-slate-950 cursor-pointer" onclick="openLightbox(${index})">
+            <img src="${photo.dataUrl}" alt="Taken photo" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105">
+          </div>
+          <div class="p-2.5 flex items-center justify-between text-xs bg-slate-900/90 border-t border-slate-800/80">
+            <div>
+              <p class="font-medium text-slate-200 text-[11px]">${photo.timestamp}</p>
+              <span class="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">${photo.filterName}</span>
+            </div>
+            <div class="flex items-center space-x-1">
+              <button onclick="openLightbox(${index})" title="Review Photo" class="p-1.5 text-slate-400 hover:text-indigo-400 transition">
+                <i class="fa-solid fa-expand"></i>
+              </button>
+              <button onclick="deletePhoto(${index})" title="Delete" class="p-1.5 text-slate-400 hover:text-rose-400 transition">
+                <i class="fa-solid fa-trash-can"></i>
+              </button>
+            </div>
+          </div>
+        `;
+        galleryGrid.appendChild(card);
+      });
+    }
+
+    // Quick Recent Photo Preview Box at bottom of Home page
+    function updateQuickRecentBox(photo) {
+      const box = document.getElementById('quickRecentBox');
+      const img = document.getElementById('quickRecentImg');
+      const time = document.getElementById('quickRecentTime');
+
+      if (photo) {
+        img.src = photo.dataUrl;
+        time.textContent = photo.timestamp;
+        box.classList.remove('hidden');
+      } else {
+        box.classList.add('hidden');
+      }
+    }
+
+    // Lightbox Full Photo Review Modal
+    function openLightbox(index) {
+      if (index < 0 || index >= photosList.length) return;
+      currentLightboxIndex = index;
+      const photo = photosList[index];
+
+      document.getElementById('lightboxImg').src = photo.dataUrl;
+      document.getElementById('lightboxTitle').textContent = `Photo #${photosList.length - index}`;
+      document.getElementById('lightboxTimestamp').textContent = `Captured on ${photo.date} at ${photo.timestamp}`;
+      document.getElementById('lightboxFilterBadge').textContent = `Filter: ${photo.filterName}`;
+      document.getElementById('lightboxDownloadBtn').href = photo.dataUrl;
+
+      const modal = document.getElementById('lightboxModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeLightbox() {
+      const modal = document.getElementById('lightboxModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+      currentLightboxIndex = -1;
+    }
+
+    function deleteCurrentLightboxPhoto() {
+      if (currentLightboxIndex >= 0) {
+        deletePhoto(currentLightboxIndex);
+        closeLightbox();
+      }
+    }
+
+    function deletePhoto(index) {
+      photosList.splice(index, 1);
+      savePhotosToStorage();
+      updateGalleryUI();
+
+      if (photosList.length > 0) {
+        updateQuickRecentBox(photosList[0]);
+      } else {
+        updateQuickRecentBox(null);
+      }
+      showToast("Photo removed from gallery.");
+    }
+
+    // Confirm Clear All Photos
+    function confirmClearAll() {
+      if (photosList.length === 0) return;
+      const modal = document.getElementById('confirmModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeConfirmModal() {
+      const modal = document.getElementById('confirmModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function executeClearAll() {
+      photosList = [];
+      savePhotosToStorage();
+      updateGalleryUI();
+      updateQuickRecentBox(null);
+      closeConfirmModal();
+      showToast("All photos cleared.");
+    }
+
+    // LocalStorage Persistence
+    function savePhotosToStorage() {
+      try {
+        localStorage.setItem('snapstudio_photos', JSON.stringify(photosList));
+      } catch (e) {
+        console.warn('LocalStorage limit reached or disabled', e);
+      }
+    }
+
+    function loadPhotosFromStorage() {
+      try {
+        const stored = localStorage.getItem('snapstudio_photos');
+        if (stored) {
+          photosList = JSON.parse(stored);
+          updateGalleryUI();
+          if (photosList.length > 0) {
+            updateQuickRecentBox(photosList[0]);
+          }
+        }
+      } catch (e) {
+        photosList = [];
+      }
+    }
+
+    // Page Navigation (Home / Gallery)
+    function showPage(pageName) {
+      const homePage = document.getElementById('homePage');
+      const galleryPage = document.getElementById('galleryPage');
+      const navHomeBtn = document.getElementById('navHomeBtn');
+      const navGalleryBtn = document.getElementById('navGalleryBtn');
+
+      if (pageName === 'home') {
+        homePage.classList.remove('hidden');
+        homePage.classList.add('flex');
+        galleryPage.classList.add('hidden');
+        galleryPage.classList.remove('flex');
+
+        navHomeBtn.className = "px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition-all duration-200 flex items-center gap-2 bg-indigo-600 text-white shadow-sm";
+        navGalleryBtn.className = "px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition-all duration-200 flex items-center gap-2 text-slate-300 hover:text-white hover:bg-slate-700/50 relative";
+      } else if (pageName === 'gallery') {
+        galleryPage.classList.remove('hidden');
+        galleryPage.classList.add('flex');
+        homePage.classList.add('hidden');
+        homePage.classList.remove('flex');
+
+        navGalleryBtn.className = "px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition-all duration-200 flex items-center gap-2 bg-indigo-600 text-white shadow-sm relative";
+        navHomeBtn.className = "px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition-all duration-200 flex items-center gap-2 text-slate-300 hover:text-white hover:bg-slate-700/50";
+      }
+    }
+
+    // Filter Switcher
+    function setFilter(filterClass, name) {
+      currentFilter = filterClass;
+      currentFilterName = name;
+      
+      // Update video element CSS class
+      videoFeed.className = `w-full h-full object-cover transition-all duration-200 ${filterClass}`;
+
+      // Update button active state
+      document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.classList.remove('bg-indigo-600', 'text-white', 'border-indigo-400');
+        btn.classList.add('bg-slate-800', 'text-slate-300', 'border-slate-700');
+      });
+      event.target.classList.remove('bg-slate-800', 'text-slate-300', 'border-slate-700');
+      event.target.classList.add('bg-indigo-600', 'text-white', 'border-indigo-400');
+    }
+
+    // Cycle Timer Options (OFF -> 3s -> 5s -> 10s)
+    function cycleTimer() {
+      const label = document.getElementById('timerLabel');
+      if (timerSeconds === 0) {
+        timerSeconds = 3;
+        label.textContent = "3s";
+      } else if (timerSeconds === 3) {
+        timerSeconds = 5;
+        label.textContent = "5s";
+      } else if (timerSeconds === 5) {
+        timerSeconds = 10;
+        label.textContent = "10s";
+      } else {
+        timerSeconds = 0;
+        label.textContent = "OFF";
+      }
+    }
+
+    // Toggle Composition Grid Lines
+    function toggleGrid() {
+      const grid = document.getElementById('cameraGrid');
+      grid.classList.toggle('hidden');
+    }
+
+    // Toast Notification System
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      const toastMsg = document.getElementById('toastMsg');
+      toastMsg.textContent = message;
+
+      toast.classList.remove('opacity-0', 'translate-y-4', 'pointer-events-none');
+      toast.classList.add('opacity-100', 'translate-y-0');
+
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-4', 'pointer-events-none');
+        toast.classList.remove('opacity-100', 'translate-y-0');
+      }, 2500);
+    }
+  </script>
+</body>
+</html>
