@@ -60,7 +60,7 @@
         </div>
         <div>
           <h1 class="font-bold text-lg leading-tight bg-gradient-to-r from-white via-slate-200 to-indigo-300 bg-clip-text text-transparent">SnapStudio</h1>
-          <p class="text-xs text-slate-400">Capture & Review</p>
+          <p class="text-xs text-slate-400">Capture & Review (6" x 4")</p>
         </div>
       </div>
 
@@ -94,33 +94,41 @@
     <!-- PAGE 1: PHOTO TAKING HOME PAGE -->
     <section id="homePage" class="flex flex-col items-center justify-center space-y-4 w-full">
       
-      <!-- Video Viewfinder Container -->
-      <div class="relative w-full aspect-[4/3] sm:aspect-[16/9] max-h-[60vh] bg-slate-900 rounded-2xl overflow-hidden border border-slate-800 shadow-2xl flex items-center justify-center group">
+      <!-- Video Viewfinder Container (6" x 4" / 3:2 Aspect Ratio) -->
+      <div class="relative w-full aspect-[3/2] max-h-[65vh] bg-slate-900 rounded-2xl overflow-hidden border border-slate-800 shadow-2xl flex items-center justify-center group">
         
         <!-- Live Camera Stream -->
-        <video id="videoFeed" autoplay playsinline class="w-full h-full object-cover filter-none transition-all duration-200"></video>
+        <video id="videoFeed" autoplay playsinline muted class="w-full h-full object-cover filter-none transition-all duration-200"></video>
         
-        <!-- Fallback Message if Camera Disabled -->
-        <div id="cameraFallback" class="hidden absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-slate-900/95 space-y-3 z-10">
+        <!-- Frame Overlay Image (frame.png) -->
+        <img id="frameOverlayPreview" src="frame.png" alt="Photo Frame Overlay" class="absolute inset-0 w-full h-full object-fill pointer-events-none z-10" onerror="this.classList.add('hidden')">
+
+        <!-- Fallback Message if Camera Disabled / Blocked -->
+        <div id="cameraFallback" class="hidden absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-slate-900/95 space-y-3 z-20">
           <div class="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 text-2xl">
             <i class="fa-solid fa-video-slash"></i>
           </div>
           <p class="text-slate-300 font-medium text-sm sm:text-base">Camera Access Required</p>
-          <p class="text-xs text-slate-500 max-w-xs">Please allow camera permissions in your browser or click below to simulate camera mode.</p>
-          <button onclick="startDemoMode()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold shadow-lg transition-all">
-            Use Canvas Demo Mode
-          </button>
+          <p class="text-xs text-slate-500 max-w-xs">Please click allow camera permissions or test with Demo Mode.</p>
+          <div class="flex gap-2">
+            <button onclick="initCamera()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold shadow-lg transition-all">
+              Retry Camera
+            </button>
+            <button onclick="startDemoMode()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold shadow-lg transition-all border border-slate-700">
+              Demo Test Mode
+            </button>
+          </div>
         </div>
 
         <!-- Hidden Canvas for Snapshot Capture -->
         <canvas id="snapshotCanvas" class="hidden"></canvas>
 
         <!-- Viewfinder Overlay Elements -->
-        <div class="absolute inset-0 pointer-events-none p-4 flex flex-col justify-between">
+        <div class="absolute inset-0 pointer-events-none p-4 flex flex-col justify-between z-10">
           <!-- Top Overlay Info -->
-          <div class="flex justify-between items-center text-slate-400 text-xs bg-slate-950/40 backdrop-blur-sm px-3 py-1.5 rounded-full w-max">
+          <div class="flex justify-between items-center text-slate-400 text-xs bg-slate-950/50 backdrop-blur-sm px-3 py-1.5 rounded-full w-max">
             <span id="cameraStatus" class="flex items-center gap-2">
-              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Live Stream
+              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Live Camera Stream
             </span>
           </div>
 
@@ -142,6 +150,18 @@
             <span id="timerNumber" class="text-7xl sm:text-9xl font-extrabold text-white animate-bounce">3</span>
           </div>
         </div>
+      </div>
+
+      <!-- Frame Status Indicator Banner -->
+      <div id="frameStatusBanner" class="w-full flex items-center justify-between px-3 py-2 bg-slate-900/80 border border-slate-800 rounded-xl text-xs">
+        <div id="frameStatusBadge" class="flex items-center gap-1.5 font-medium">
+          <span class="text-amber-400 flex items-center gap-1"><i class="fa-solid fa-spinner animate-spin"></i> Checking frame.png...</span>
+        </div>
+        <label for="frameFileInput" class="cursor-pointer text-[11px] text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1 bg-indigo-950/60 hover:bg-indigo-900/80 px-2.5 py-1 rounded-lg border border-indigo-800/50 transition">
+          <i class="fa-solid fa-file-image"></i>
+          <span>Upload Frame PNG</span>
+        </label>
+        <input type="file" id="frameFileInput" accept="image/png,image/jpeg,image/webp" class="hidden" onchange="handleFrameUpload(event)">
       </div>
 
       <!-- Live Filter Selector Horizontal Bar -->
@@ -176,6 +196,12 @@
           </button>
         </div>
 
+        <!-- Frame Manager Button -->
+        <label for="frameFileInput" class="w-11 h-11 rounded-full bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 flex flex-col items-center justify-center transition text-xs cursor-pointer" title="Change or Upload Frame PNG">
+          <i class="fa-solid fa-crop-simple text-sm"></i>
+          <span class="text-[9px]">Frame</span>
+        </label>
+
         <!-- Grid Lines Toggle -->
         <button id="gridToggleBtn" onclick="toggleGrid()" title="Toggle Composition Grid" class="w-11 h-11 rounded-full bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 flex flex-col items-center justify-center transition text-xs">
           <i class="fa-solid fa-border-all text-sm"></i>
@@ -205,17 +231,17 @@
     <!-- PAGE 2: PHOTO REVIEW GALLERY -->
     <section id="galleryPage" class="hidden flex-col space-y-5 w-full">
       
-      <!-- Top Action Bar with "Back to Home / Camera" Button -->
+      <!-- Top Action Bar with "Back to Camera" Button -->
       <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-slate-900 p-4 rounded-2xl border border-slate-800">
         <div class="flex items-center space-x-3">
-          <!-- BACK TO HOME BUTTON -->
+          <!-- BACK TO HOME / CAMERA BUTTON -->
           <button onclick="showPage('home')" class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs sm:text-sm flex items-center gap-2 transition shadow-md shadow-indigo-600/20 active:scale-95">
             <i class="fa-solid fa-arrow-left"></i>
             <span>Back to Camera</span>
           </button>
           <div>
             <h2 class="text-base font-bold text-slate-100">Photo Review Gallery</h2>
-            <p class="text-xs text-slate-400" id="photoCountSub text">0 photos captured</p>
+            <p class="text-xs text-slate-400" id="photoCountSub">0 photos captured</p>
           </div>
         </div>
 
@@ -227,7 +253,7 @@
         </div>
       </div>
 
-      <!-- Empty State -->
+      <!-- Empty Gallery State -->
       <div id="emptyGallery" class="flex flex-col items-center justify-center py-16 px-4 text-center bg-slate-900/40 border border-dashed border-slate-800 rounded-2xl space-y-3">
         <div class="w-16 h-16 rounded-full bg-slate-800/80 flex items-center justify-center text-slate-500 text-2xl">
           <i class="fa-regular fa-image"></i>
@@ -280,7 +306,7 @@
       <img id="lightboxImg" src="" alt="Full preview" class="max-h-full max-w-full object-contain rounded-lg border border-slate-800 shadow-2xl">
     </div>
 
-    <!-- Lightbox Footer / Navigation back to Camera -->
+    <!-- Lightbox Footer -->
     <div class="max-w-4xl w-full mx-auto flex items-center justify-between text-xs text-slate-400 border-t border-slate-800/80 pt-3">
       <span id="lightboxFilterBadge" class="bg-slate-800 px-2.5 py-1 rounded-md text-[11px] font-mono">Filter: Normal</span>
       <button onclick="closeLightbox(); showPage('home');" class="text-indigo-400 hover:text-indigo-300 font-medium flex items-center gap-1">
@@ -290,7 +316,7 @@
     </div>
   </div>
 
-  <!-- Confirmation Dialog Modal -->
+  <!-- Clear Confirmation Dialog Modal -->
   <div id="confirmModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm hidden items-center justify-center p-4">
     <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl">
       <div class="flex items-center space-x-3 text-rose-400">
@@ -319,6 +345,9 @@
     let activeStream = null;
     let isDemoMode = false;
     let currentLightboxIndex = -1;
+    let activeFrameSrc = 'frame.png';
+    let isFrameLoaded = false;
+    let demoAnimationId = null;
 
     // DOM Elements
     const videoFeed = document.getElementById('videoFeed');
@@ -333,82 +362,159 @@
     window.addEventListener('load', () => {
       loadPhotosFromStorage();
       initCamera();
+      initFrameLoader();
     });
 
-    // Camera WebRTC Stream Initialization
+    // Initialize WebRTC Camera Access
     async function initCamera() {
+      if (demoAnimationId) {
+        cancelAnimationFrame(demoAnimationId);
+        demoAnimationId = null;
+      }
+
       try {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-          throw new Error("getUserMedia not supported");
+          showCameraFallback("Camera API is not supported by your current browser.");
+          return;
         }
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" },
+
+        const constraints = {
+          video: {
+            facingMode: 'user',
+            width: { ideal: 1920 },
+            height: { ideal: 1080 }
+          },
           audio: false
-        });
+        };
+
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
         activeStream = stream;
         videoFeed.srcObject = stream;
+        await videoFeed.play();
+
+        document.getElementById('cameraStatus').innerHTML = `
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Live Stream
+        `;
         cameraFallback.classList.add('hidden');
         isDemoMode = false;
       } catch (err) {
-        console.warn("Camera permission denied or unavailable. Falling back to Demo Canvas Mode:", err);
-        startDemoMode();
+        console.warn("Camera init error:", err);
+        showCameraFallback("Camera access denied or device unavailable. You can use Demo Test Mode below.");
       }
     }
 
-    // Demo Canvas fallback if no web camera permission is given
+    function showCameraFallback(message) {
+      const msgEl = cameraFallback.querySelector('p.text-xs');
+      if (msgEl && message) msgEl.textContent = message;
+      cameraFallback.classList.remove('hidden');
+      document.getElementById('cameraStatus').innerHTML = `
+        <span class="w-2 h-2 rounded-full bg-amber-500"></span> Camera Idle
+      `;
+    }
+
+    // Demo Canvas mode for testing without camera
     function startDemoMode() {
       isDemoMode = true;
       cameraFallback.classList.add('hidden');
-      const ctx = snapshotCanvas.getContext('2d');
-      snapshotCanvas.width = 640;
-      snapshotCanvas.height = 480;
+      document.getElementById('cameraStatus').innerHTML = `
+        <span class="w-2 h-2 rounded-full bg-indigo-400 animate-ping"></span> Demo Test Mode
+      `;
 
-      function renderDemoFrame() {
+      let angle = 0;
+      const drawDemoFrame = () => {
         if (!isDemoMode) return;
-        const time = Date.now() * 0.002;
-        ctx.fillStyle = '#0f172a';
-        ctx.fillRect(0, 0, 640, 480);
+        
+        snapshotCanvas.width = 600;
+        snapshotCanvas.height = 400;
+        const ctx = snapshotCanvas.getContext('2d');
 
-        // Draw dynamic background pattern
-        ctx.fillStyle = '#1e293b';
-        for (let i = 0; i < 5; i++) {
-          ctx.beginPath();
-          ctx.arc(
-            320 + Math.sin(time + i) * 100,
-            240 + Math.cos(time + i * 0.8) * 60,
-            60 + i * 15,
-            0, Math.PI * 2
-          );
-          ctx.fill();
-        }
-
-        // Draw animated subject shape
-        ctx.fillStyle = '#6366f1';
-        ctx.beginPath();
-        ctx.arc(320, 220 + Math.sin(time * 2) * 15, 70, 0, Math.PI * 2);
-        ctx.fill();
+        // Draw animated gradient scene
+        angle += 0.02;
+        const grad = ctx.createLinearGradient(0, 0, 600, 400);
+        grad.addColorStop(0, `hsl(${(angle * 50) % 360}, 70%, 50%)`);
+        grad.addColorStop(1, `hsl(${(angle * 50 + 120) % 360}, 70%, 30%)`);
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, 600, 400);
 
         ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 20px sans-serif';
+        ctx.font = 'bold 24px Inter, sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('Demo Camera Mode', 320, 360);
-        ctx.font = '12px sans-serif';
-        ctx.fillStyle = '#94a3b8';
-        ctx.fillText('Click shutter to capture test photo', 320, 385);
+        ctx.fillText('SnapStudio Demo Camera Feed', 300, 190);
+        ctx.font = '14px Inter, sans-serif';
+        ctx.fillText('Click Shutter to capture with frame.png', 300, 220);
 
-        requestAnimationFrame(renderDemoFrame);
-      }
-      renderDemoFrame();
+        demoAnimationId = requestAnimationFrame(drawDemoFrame);
+      };
+
+      drawDemoFrame();
+      showToast("Demo camera mode active.");
     }
 
-    // Trigger Photo Capture (Handles Timer countdown)
+    // Initialize frame image checking and loading
+    function initFrameLoader() {
+      const savedCustomFrame = localStorage.getItem('snapstudio_custom_frame');
+      if (savedCustomFrame) {
+        setFrameSource(savedCustomFrame, 'Custom Upload');
+      } else {
+        setFrameSource('frame.png', 'frame.png');
+      }
+    }
+
+    // Load Frame Image with status feedback
+    function setFrameSource(src, labelName) {
+      const frameImg = document.getElementById('frameOverlayPreview');
+      const badge = document.getElementById('frameStatusBadge');
+
+      const testImg = new Image();
+      testImg.onload = function() {
+        activeFrameSrc = src;
+        frameImg.src = src;
+        frameImg.classList.remove('hidden');
+        isFrameLoaded = true;
+        badge.innerHTML = `<span class="text-emerald-400 flex items-center gap-1.5"><i class="fa-solid fa-circle-check"></i> Frame Active (${labelName})</span>`;
+      };
+
+      testImg.onerror = function() {
+        frameImg.classList.add('hidden');
+        isFrameLoaded = false;
+        badge.innerHTML = `<span class="text-amber-400 flex items-center gap-1.5"><i class="fa-solid fa-triangle-exclamation"></i> 'frame.png' not found. Upload frame or check filename.</span>`;
+      };
+
+      testImg.src = src;
+    }
+
+    // Handle user manual PNG frame upload
+    function handleFrameUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const dataUrl = e.target.result;
+        try {
+          localStorage.setItem('snapstudio_custom_frame', dataUrl);
+        } catch(err) {
+          console.warn('Storage quota exceeded for frame');
+        }
+        setFrameSource(dataUrl, file.name);
+        showToast("Custom frame loaded!");
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // Main Shutter Button Trigger Logic
     function triggerCaptureSequence() {
+      const shutterBtn = document.getElementById('shutterBtn');
+      shutterBtn.disabled = true;
+
       if (timerSeconds > 0) {
         runCountdown(timerSeconds, () => {
           capturePhoto();
+          shutterBtn.disabled = false;
         });
       } else {
         capturePhoto();
+        shutterBtn.disabled = false;
       }
     }
 
@@ -439,48 +545,89 @@
       flashOverlay.classList.add('flash-active');
       setTimeout(() => flashOverlay.classList.remove('flash-active'), 300);
 
-      // Play synthesized camera shutter sound
+      // Audio click sound
       playShutterSound();
 
-      // Setup canvas dimensions
-      let width = videoFeed.videoWidth || 640;
-      let height = videoFeed.videoHeight || 480;
-      snapshotCanvas.width = width;
-      snapshotCanvas.height = height;
+      // Target high-res 6" x 4" (3:2 ratio) resolution: 1800 x 1200 px
+      const canvasWidth = 1800;
+      const canvasHeight = 1200;
+      const targetRatio = 3 / 2;
+
+      snapshotCanvas.width = canvasWidth;
+      snapshotCanvas.height = canvasHeight;
 
       const ctx = snapshotCanvas.getContext('2d');
 
-      // Apply currently selected CSS filter to canvas
+      // Apply selected live filter to base photo only
       ctx.filter = getCanvasFilterString(currentFilter);
 
       if (isDemoMode) {
-        // Render demo snapshot
-        ctx.drawImage(snapshotCanvas, 0, 0, width, height);
+        ctx.drawImage(snapshotCanvas, 0, 0, canvasWidth, canvasHeight);
+        compositeFrameAndSave(ctx, canvasWidth, canvasHeight);
       } else {
-        // Draw video frame
-        ctx.drawImage(videoFeed, 0, 0, width, height);
+        // Crop video center to 3:2 ratio
+        let videoWidth = videoFeed.videoWidth || 1200;
+        let videoHeight = videoFeed.videoHeight || 800;
+
+        let srcW = videoWidth;
+        let srcH = videoHeight;
+        let srcX = 0;
+        let srcY = 0;
+
+        if (videoWidth / videoHeight > targetRatio) {
+          srcW = videoHeight * targetRatio;
+          srcX = (videoWidth - srcW) / 2;
+        } else {
+          srcH = videoWidth / targetRatio;
+          srcY = (videoHeight - srcH) / 2;
+        }
+
+        ctx.drawImage(videoFeed, srcX, srcY, srcW, srcH, 0, 0, canvasWidth, canvasHeight);
+        compositeFrameAndSave(ctx, canvasWidth, canvasHeight);
       }
-
-      // Export as Base64 Data URL
-      const dataUrl = snapshotCanvas.toDataURL('image/png');
-      
-      const newPhoto = {
-        id: Date.now(),
-        dataUrl: dataUrl,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-        date: new Date().toLocaleDateString(),
-        filterName: currentFilterName
-      };
-
-      photosList.unshift(newPhoto);
-      savePhotosToStorage();
-      updateGalleryUI();
-      updateQuickRecentBox(newPhoto);
-
-      showToast("Photo captured & saved to review!");
     }
 
-    // Convert CSS filter class to canvas filter property string
+    // Overlay frame.png on top of captured photo and save to gallery
+    function compositeFrameAndSave(ctx, width, height) {
+      // Reset filter so filter effects do not alter border frame design
+      ctx.filter = 'none';
+
+      const finalize = () => {
+        const dataUrl = snapshotCanvas.toDataURL('image/png');
+        
+        const newPhoto = {
+          id: Date.now(),
+          dataUrl: dataUrl,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+          date: new Date().toLocaleDateString(),
+          filterName: currentFilterName
+        };
+
+        photosList.unshift(newPhoto);
+        savePhotosToStorage();
+        updateGalleryUI();
+        updateQuickRecentBox(newPhoto);
+
+        showToast("Photo captured with frame!");
+      };
+
+      if (isFrameLoaded && activeFrameSrc) {
+        const frameImg = new Image();
+        frameImg.crossOrigin = 'anonymous';
+        frameImg.onload = function() {
+          ctx.drawImage(frameImg, 0, 0, width, height);
+          finalize();
+        };
+        frameImg.onerror = function() {
+          finalize();
+        };
+        frameImg.src = activeFrameSrc;
+      } else {
+        finalize();
+      }
+    }
+
+    // Convert CSS filter class to canvas filter string
     function getCanvasFilterString(filterClass) {
       switch (filterClass) {
         case 'filter-grayscale': return 'grayscale(100%)';
@@ -493,14 +640,13 @@
       }
     }
 
-    // Web Audio Synthesized Camera Shutter Sound (No external audio file needed!)
+    // Synthesized Audio Shutter Sound
     function playShutterSound() {
       try {
         const AudioCtx = window.AudioContext || window.webkitAudioContext;
         if (!AudioCtx) return;
         const ctx = new AudioCtx();
         
-        // Noise buffer for camera click
         const bufferSize = ctx.sampleRate * 0.05;
         const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
         const data = buffer.getChannelData(0);
@@ -519,13 +665,15 @@
         gain.connect(ctx.destination);
         noise.start();
       } catch (e) {
-        // Ignore audio play restrictions
+        // Audio playback restricted without user interaction
       }
     }
 
     // Render Photos in Gallery Grid
     function updateGalleryUI() {
-      // Update badge count
+      const countSub = document.getElementById('photoCountSub');
+      if (countSub) countSub.textContent = `${photosList.length} photos captured`;
+
       if (photosList.length > 0) {
         photoBadge.textContent = photosList.length;
         photoBadge.classList.remove('hidden');
@@ -541,7 +689,7 @@
         const card = document.createElement('div');
         card.className = "group relative bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-lg transition transform hover:-translate-y-1 hover:border-indigo-500/50";
         card.innerHTML = `
-          <div class="aspect-square w-full overflow-hidden bg-slate-950 cursor-pointer" onclick="openLightbox(${index})">
+          <div class="aspect-[3/2] w-full overflow-hidden bg-slate-950 cursor-pointer" onclick="openLightbox(${index})">
             <img src="${photo.dataUrl}" alt="Taken photo" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105">
           </div>
           <div class="p-2.5 flex items-center justify-between text-xs bg-slate-900/90 border-t border-slate-800/80">
@@ -563,7 +711,7 @@
       });
     }
 
-    // Quick Recent Photo Preview Box at bottom of Home page
+    // Quick Recent Photo Preview Box
     function updateQuickRecentBox(photo) {
       const box = document.getElementById('quickRecentBox');
       const img = document.getElementById('quickRecentImg');
@@ -578,7 +726,7 @@
       }
     }
 
-    // Lightbox Full Photo Review Modal
+    // Lightbox Modal Display
     function openLightbox(index) {
       if (index < 0 || index >= photosList.length) return;
       currentLightboxIndex = index;
@@ -622,7 +770,7 @@
       showToast("Photo removed from gallery.");
     }
 
-    // Confirm Clear All Photos
+    // Clear All Photos Modal
     function confirmClearAll() {
       if (photosList.length === 0) return;
       const modal = document.getElementById('confirmModal');
@@ -650,7 +798,7 @@
       try {
         localStorage.setItem('snapstudio_photos', JSON.stringify(photosList));
       } catch (e) {
-        console.warn('LocalStorage limit reached or disabled', e);
+        console.warn('LocalStorage limit reached', e);
       }
     }
 
@@ -669,7 +817,7 @@
       }
     }
 
-    // Page Navigation (Home / Gallery)
+    // Page Navigation (Camera Home <-> Photo Gallery Review)
     function showPage(pageName) {
       const homePage = document.getElementById('homePage');
       const galleryPage = document.getElementById('galleryPage');
@@ -700,10 +848,8 @@
       currentFilter = filterClass;
       currentFilterName = name;
       
-      // Update video element CSS class
       videoFeed.className = `w-full h-full object-cover transition-all duration-200 ${filterClass}`;
 
-      // Update button active state
       document.querySelectorAll('.filter-btn').forEach(btn => {
         btn.classList.remove('bg-indigo-600', 'text-white', 'border-indigo-400');
         btn.classList.add('bg-slate-800', 'text-slate-300', 'border-slate-700');
@@ -730,7 +876,7 @@
       }
     }
 
-    // Toggle Composition Grid Lines
+    // Toggle Composition Grid
     function toggleGrid() {
       const grid = document.getElementById('cameraGrid');
       grid.classList.toggle('hidden');
